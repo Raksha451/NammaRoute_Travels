@@ -23,11 +23,12 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                int choice = input.readInt("Enter your choice: ", 0, 2);
+                int choice = input.readInt("Enter your choice: ", 0, 3);
                 try {
                     switch (choice) {
                         case 1 -> addBus();
                         case 2 -> Printer.printBusList(service.getBuses());
+                        case 3 -> showSeatMap();
                         case 0 -> running = false;
                     }
                 } catch (IllegalArgumentException | IllegalStateException | UncheckedIOException e) {
@@ -45,7 +46,16 @@ public class Main {
         System.out.println("---------- MAIN MENU ----------");
         System.out.println("1. Add a bus service");
         System.out.println("2. View all bus services");
+        System.out.println("3. View seat map");
         System.out.println("0. Exit");
+    }
+
+    /** Asks for a Route ID and returns the bus, or null (after printing an error) if not found. */
+    private static Bus askForBus() {
+        String routeId = input.readRouteId("Enter Route ID (example NR-101): ");
+        Bus bus = service.findBus(routeId);
+        if (bus == null) System.out.println("Error: no bus found with Route ID " + routeId + ".");
+        return bus;
     }
 
     // ---------- Feature 1 ----------
@@ -72,5 +82,11 @@ public class Main {
 
         service.addBus(new Bus(routeId, origin, destination, departure, price, type));
         System.out.println("Bus " + routeId + " added successfully.");
+    }
+
+    // ---------- Feature 2 ----------
+    private static void showSeatMap() {
+        Bus bus = askForBus();
+        if (bus != null) Printer.printSeatMap(bus);
     }
 }
