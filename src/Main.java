@@ -25,13 +25,15 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                int choice = input.readInt("Enter your choice: ", 0, 4);
+                int choice = input.readInt("Enter your choice: ", 0, 6);
                 try {
                     switch (choice) {
                         case 1 -> addBus();
                         case 2 -> Printer.printBusList(service.getBuses());
                         case 3 -> showSeatMap();
                         case 4 -> bookTickets();
+                        case 5 -> cancelTickets();
+                        case 6 -> showManifest();
                         case 0 -> running = false;
                     }
                 } catch (IllegalArgumentException | IllegalStateException | UncheckedIOException e) {
@@ -51,6 +53,8 @@ public class Main {
         System.out.println("2. View all bus services");
         System.out.println("3. View seat map");
         System.out.println("4. Book tickets");
+        System.out.println("5. Cancel tickets");
+        System.out.println("6. Conductor passenger manifest");
         System.out.println("0. Exit");
     }
 
@@ -120,5 +124,50 @@ public class Main {
 
         Booking booking = service.book(bus, seatNos, passengers);
         Printer.printReceipt(bus, booking);
+    }
+
+    // ---------- Feature 4 ----------
+    private static void cancelTickets() {
+        System.out.println("\n--- Cancel Tickets ---");
+        String pnr = input.readText("Enter PNR (example PNR-84920): ").toUpperCase();
+        if (pnr.matches("\\d+")) pnr = "PNR-" + pnr;   // allow typing just the digits
+
+        Booking booking = service.findBooking(pnr);
+        if (booking == null) {
+            System.out.println("Error: no booking found with PNR " + pnr + ".");
+            return;
+        }
+        if (booking.getActiveTickets().isEmpty()) {
+            System.out.println("All seats in " + pnr + " are already cancelled.");
+            return;
+        }
+
+        Printer.printActiveTickets(booking);
+        List<String> seatsToCancel = new ArrayList<>();
+        if (input.readYesNo("\nCancel ALL active seats in this booking? (Y/N): ")) {
+            for (Ticket t : booking.getActiveTickets()) seatsToCancel.add(t.getSeatNo());
+        } else {
+            seatsToCancel = input.readSeatNumbers("Enter the seat numbers to cancel (example 1B): ");
+        }
+
+        String error = service.checkSeatsForCancel(booking, seatsToCancel);
+        if (error != null) {
+            System.out.println("Cancellation stopped. " + error);
+            return;
+        }
+
+        double refund = service.cancelSeats(booking, seatsToCancel);
+        System.out.println();
+        System.out.println("CANCELLATION CONFIRMED");
+        System.out.println("PNR              : " + pnr);
+        System.out.println("Seats cancelled  : " + String.join(", ", seatsToCancel));
+        System.out.println("Refund amount    : " + Printer.money(refund));
+        System.out.println("These seats are now available again.");
+    }
+
+    // ---------- Feature 5 ----------
+    private static void showManifest() {
+        Bus bus = askForBus();
+        if (bus != null) Printer.printManifest(bus, service.getManifest(bus));
     }
 }
