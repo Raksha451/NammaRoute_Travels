@@ -67,4 +67,26 @@ public class Printer {
         String text = bus.getSeat(seatNo).isBooked() ? "XX" : seatNo;
         return "[" + String.format("%-" + width + "s", text) + "]";
     }
+
+    // ---------- Feature 3: receipt ----------
+
+    public static void printReceipt(Bus bus, Booking booking) {
+        System.out.println();
+        System.out.println("==================== BOOKING RECEIPT ====================");
+        System.out.println("PNR           : " + booking.getPnr());
+        System.out.println("Bus           : " + bus.getRouteId() + " (" + bus.getType().getLabel() + ")");
+        System.out.println("Route         : " + bus.getOrigin() + " -> " + bus.getDestination());
+        System.out.println("Departure     : " + bus.getDeparture().format(Bus.DATE_FORMAT));
+        System.out.println("Booked on     : " + booking.getBookingTime().format(Bus.DATE_FORMAT));
+        System.out.println("---------------------------------------------------------");
+        System.out.printf("%-6s | %-20s | %-3s | %-6s | %s%n", "Seat", "Passenger", "Age", "Gender", "Fare");
+        for (Ticket t : booking.getTickets()) {
+            Passenger p = t.getPassenger();
+            System.out.printf("%-6s | %-20s | %-3d | %-6s | %s%n",
+                    t.getSeatNo(), p.getName(), p.getAge(), p.getGender(), money(t.getFare()));
+        }
+        System.out.println("---------------------------------------------------------");
+        System.out.println("TOTAL PAID    : " + money(booking.getTotalPaid()));
+        System.out.println("=========================================================");
+    }
 }

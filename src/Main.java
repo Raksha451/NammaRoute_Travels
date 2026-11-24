@@ -1,5 +1,7 @@
 import java.io.UncheckedIOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.NoSuchElementException;
 
 /** The console menu. It only talks to the user; the rules are in BookingService. */
@@ -23,12 +25,13 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                int choice = input.readInt("Enter your choice: ", 0, 3);
+                int choice = input.readInt("Enter your choice: ", 0, 4);
                 try {
                     switch (choice) {
                         case 1 -> addBus();
                         case 2 -> Printer.printBusList(service.getBuses());
                         case 3 -> showSeatMap();
+                        case 4 -> bookTickets();
                         case 0 -> running = false;
                     }
                 } catch (IllegalArgumentException | IllegalStateException | UncheckedIOException e) {
@@ -47,6 +50,7 @@ public class Main {
         System.out.println("1. Add a bus service");
         System.out.println("2. View all bus services");
         System.out.println("3. View seat map");
+        System.out.println("4. Book tickets");
         System.out.println("0. Exit");
     }
 
@@ -88,5 +92,33 @@ public class Main {
     private static void showSeatMap() {
         Bus bus = askForBus();
         if (bus != null) Printer.printSeatMap(bus);
+    }
+
+    // ---------- Feature 3 ----------
+    private static void bookTickets() {
+        System.out.println("\n--- Book Tickets ---");
+        Bus bus = askForBus();
+        if (bus == null) return;
+
+        Printer.printSeatMap(bus);
+        List<String> seatNos = input.readSeatNumbers("Enter seat numbers (example 1A, 1B): ");
+
+        String error = service.checkSeatsForBooking(bus, seatNos);
+        if (error != null) {
+            System.out.println("Booking stopped. " + error);
+            return;
+        }
+
+        List<Passenger> passengers = new ArrayList<>();
+        for (String seatNo : seatNos) {
+            System.out.println("\nPassenger details for seat " + seatNo + ":");
+            String name = input.readName("  Name: ");
+            int age = input.readInt("  Age (1-120): ", 1, 120);
+            String gender = input.readGender("  Gender (M / F / Other): ");
+            passengers.add(new Passenger(name, age, gender));
+        }
+
+        Booking booking = service.book(bus, seatNos, passengers);
+        Printer.printReceipt(bus, booking);
     }
 }
