@@ -89,4 +89,31 @@ public class Printer {
         System.out.println("TOTAL PAID    : " + money(booking.getTotalPaid()));
         System.out.println("=========================================================");
     }
+
+    // ---------- Feature 4: cancel screen ----------
+
+    public static void printActiveTickets(Booking booking) {
+        System.out.println();
+        System.out.println("Booking " + booking.getPnr() + " on route " + booking.getRouteId() + " - active seats:");
+        for (Ticket t : booking.getActiveTickets()) {
+            System.out.printf("  %-5s %-20s fare %s%n", t.getSeatNo(), t.getPassenger().getName(), money(t.getFare()));
+        }
+    }
+
+    // ---------- Feature 5: manifest ----------
+
+    public static void printManifest(Bus bus, List<Ticket> manifest) {
+        System.out.println();
+        System.out.println("=== PASSENGER MANIFEST: " + bus.getRouteId() + " (" + bus.getOrigin()
+                + " -> " + bus.getDestination() + ") ===");
+        System.out.printf("%-5s | %-9s | %-20s | %-3s | %s%n", "Seat", "PNR", "Passenger Name", "Age", "Gender");
+        System.out.println("-".repeat(60));
+        for (Ticket t : manifest) {
+            Passenger p = t.getPassenger();
+            System.out.printf("%-5s | %-9s | %-20s | %-3d | %s%n",
+                    t.getSeatNo(), t.getPnr(), p.getName(), p.getAge(), p.getGender());
+        }
+        System.out.println("-".repeat(60));
+        System.out.println("Total Booked: " + bus.getBookedCount() + " | Available: " + bus.getAvailableCount());
+    }
 }

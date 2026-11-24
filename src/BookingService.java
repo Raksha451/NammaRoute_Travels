@@ -1,4 +1,5 @@
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
@@ -11,6 +12,7 @@ import java.util.Set;
 public class BookingService {
     private final DataStore store;
     private final PricingPolicy pricing = new PricingPolicy();
+    private final RefundPolicy refunds = new RefundPolicy();
     private final List<Bus> buses;
     private final List<Booking> bookings;
     private final Random random = new Random();
@@ -83,6 +85,52 @@ public class BookingService {
             if (b.getPnr().equalsIgnoreCase(pnr)) return b;
         }
         return null;
+    }
+
+    // ---------- Feature 4: cancelling ----------
+
+    /** Returns an error message if these seats cannot be cancelled, or null if fine. */
+    public String checkSeatsForCancel(Booking booking, List<String> seatNos) {
+        if (seatNos.isEmpty()) return "Please enter at least one seat number.";
+        Bus bus = findBus(booking.getRouteId());
+        if (bus != null && bus.getDeparture().isBefore(LocalDateTime.now())) {
+            return "This bus has already departed, so it cannot be cancelled.";
+        }
+        Set<String> seen = new HashSet<>();
+        for (String seatNo : seatNos) {
+            if (!seen.add(seatNo)) return "Seat " + seatNo + " was entered more than once.";
+            if (booking.findActiveTicket(seatNo) == null) {
+                return "Seat " + seatNo + " is not an active seat in " + booking.getPnr() + ".";
+            }
+        }
+        return null;
+    }
+
+    /** Cancels the given seats, frees them, saves, and returns the total refund. */
+    public double cancelSeats(Booking booking, List<String> seatNos) {
+        Bus bus = findBus(booking.getRouteId());
+        double totalRefund = 0;
+        for (String seatNo : seatNos) {
+            Ticket ticket = booking.findActiveTicket(seatNo);
+            double refund = refunds.calculateRefund(ticket.getFare(), bus.getDeparture(), LocalDateTime.now());
+            ticket.cancel(refund);
+            bus.getSeat(seatNo).setBooked(false);   // seat is free again immediately
+            totalRefund += refund;
+        }
+        saveAll();
+        return totalRefund;
+    }
+
+    // ---------- Feature 5: manifest ----------
+
+    /** All active tickets on a bus, sorted by seat order. */
+    public List<Ticket> getManifest(Bus bus) {
+        List<Ticket> list = new ArrayList<>();
+        for (Booking b : bookings) {
+            if (b.getRouteId().equals(bus.getRouteId())) list.addAll(b.getActiveTickets());
+        }
+        list.sort((a, b) -> Integer.compare(bus.seatPosition(a.getSeatNo()), bus.seatPosition(b.getSeatNo())));
+        return list;
     }
 
     // ---------- Saving ----------

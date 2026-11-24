@@ -101,4 +101,14 @@ public class InputHelper {
         }
         return seats;
     }
+
+    public boolean readYesNo(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String text = scanner.nextLine().trim().toUpperCase();
+            if (text.equals("Y") || text.equals("YES")) return true;
+            if (text.equals("N") || text.equals("NO")) return false;
+            System.out.println("  Error: please type Y or N.");
+        }
+    }
 }
