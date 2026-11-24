@@ -5,15 +5,19 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Saves and loads everything from CSV files. This class knows NOTHING about menus or booking rules.
  *
- * buses.csv : routeId,origin,destination,departure,basePrice,busType,bookedSeats(separated by |)
+ * buses.csv    : routeId,origin,destination,departure,basePrice,busType,bookedSeats(separated by |)
+ * bookings.csv : pnr,routeId,bookingTime,seatNo,name,age,gender,fare,status,refund   (one line per ticket)
  */
 public class DataStore {
     private final Path busFile;
+    private final Path bookingFile;
 
     public DataStore(String folder) {
         try {
@@ -22,6 +26,7 @@ public class DataStore {
             throw new UncheckedIOException("Could not create data folder", e);
         }
         busFile = Paths.get(folder, "buses.csv");
+        bookingFile = Paths.get(folder, "bookings.csv");
     }
 
     // ---------- Buses ----------
@@ -49,6 +54,39 @@ public class DataStore {
                     b.getType().name(), String.join("|", b.getBookedSeatNumbers())));
         }
         writeLines(busFile, lines);
+    }
+
+    // ---------- Bookings ----------
+
+    public List<Booking> loadBookings() {
+        Map<String, Booking> byPnr = new LinkedHashMap<>();
+        for (String line : readLines(bookingFile)) {
+            String[] p = line.split(",", -1);
+            Booking booking = byPnr.get(p[0]);
+            if (booking == null) {
+                booking = new Booking(p[0], p[1], LocalDateTime.parse(p[2], Bus.DATE_FORMAT));
+                byPnr.put(p[0], booking);
+            }
+            Passenger passenger = new Passenger(p[4], Integer.parseInt(p[5]), p[6]);
+            Ticket ticket = new Ticket(p[0], p[3], passenger, Double.parseDouble(p[7]));
+            if (p[8].equals("CANCELLED")) ticket.cancel(Double.parseDouble(p[9]));
+            booking.addTicket(ticket);
+        }
+        return new ArrayList<>(byPnr.values());
+    }
+
+    public void saveBookings(List<Booking> bookings) {
+        List<String> lines = new ArrayList<>();
+        for (Booking b : bookings) {
+            for (Ticket t : b.getTickets()) {
+                Passenger p = t.getPassenger();
+                lines.add(String.join(",", b.getPnr(), b.getRouteId(),
+                        b.getBookingTime().format(Bus.DATE_FORMAT), t.getSeatNo(), p.getName(),
+                        String.valueOf(p.getAge()), p.getGender(), String.valueOf(t.getFare()),
+                        t.isCancelled() ? "CANCELLED" : "BOOKED", String.valueOf(t.getRefundAmount())));
+            }
+        }
+        writeLines(bookingFile, lines);
     }
 
     // ---------- Helpers ----------
