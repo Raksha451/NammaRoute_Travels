@@ -83,4 +83,31 @@ public class Bus {
     public LocalDateTime getDeparture() { return departure; }
     public double getBasePrice() { return basePrice; }
     public BusType getType() { return type; }
+
+    /**
+     * The seat right next to this one in its 2-seat pair, or null if the seat has no pair.
+     * 2x2 Seater: A-B and C-D in every row (1A-1B, 1C-1D ...).
+     * 2x1 Sleeper: each row of 3 berths on a deck is a double + a single,
+     *              so L1-L2 are a pair, L3 is a single, L4-L5 are a pair, L6 is a single ...
+     */
+    public String getPairedSeat(String number) {
+        if (!seats.containsKey(number)) return null;
+        if (type == BusType.SEATER_2X2) {
+            String row = number.substring(0, number.length() - 1);
+            char letter = number.charAt(number.length() - 1);
+            return switch (letter) {
+                case 'A' -> row + "B";
+                case 'B' -> row + "A";
+                case 'C' -> row + "D";
+                case 'D' -> row + "C";
+                default -> null;
+            };
+        }
+        String deck = number.substring(0, 1);                    // "L" or "U"
+        int n = Integer.parseInt(number.substring(1));
+        int position = (n - 1) % 3;                              // 0, 1 = the pair, 2 = the single
+        if (position == 0) return deck + (n + 1);
+        if (position == 1) return deck + (n - 1);
+        return null;
+    }
 }

@@ -51,14 +51,15 @@ public class Printer {
         System.out.println("Available: " + bus.getAvailableCount() + " | Booked: " + bus.getBookedCount());
     }
 
+    /** One deck of a sleeper: 4 rows, each with a pair of berths, a gap, then a single berth. */
     private static void printDeck(Bus bus, String title, String prefix) {
         System.out.println(title + ":");
-        for (int start = 1; start <= 12; start += 6) {
-            StringBuilder line = new StringBuilder("  ");
-            for (int i = start; i < start + 6; i++) {
-                line.append(seatLabel(bus, prefix + i, 3)).append(' ');
-            }
-            System.out.println(line);
+        for (int row = 0; row < 4; row++) {
+            int first = row * 3 + 1;
+            System.out.println("  Row " + (row + 1) + ":  "
+                    + seatLabel(bus, prefix + first, 3) + " " + seatLabel(bus, prefix + (first + 1), 3)
+                    + "     "
+                    + seatLabel(bus, prefix + (first + 2), 3));
         }
     }
 

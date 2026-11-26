@@ -125,6 +125,15 @@ public class Main {
             passengers.add(new Passenger(name, age, gender));
         }
 
+        // Female co-seat safety rule (needs the passengers' gender, so it runs after the details)
+        String ruleError = service.checkCoSeatRule(bus, seatNos, passengers);
+        if (ruleError != null) {
+            System.out.println();
+            System.out.println(ruleError);
+            System.out.println("No seats were booked.");
+            return;
+        }
+
         // Show the price (including any surge) BEFORE the booking is confirmed
         List<Double> fares = service.previewFares(bus, seatNos.size());
         Printer.printFareSummary(bus, seatNos, fares);

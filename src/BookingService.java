@@ -13,6 +13,7 @@ public class BookingService {
     private final DataStore store;
     private final PricingPolicy pricing = new PricingPolicy();
     private final RefundPolicy refunds = new RefundPolicy();
+    private final CoSeatRule coSeatRule = new CoSeatRule();
     private final List<Bus> buses;
     private final List<Booking> bookings;
     private final Random random = new Random();
@@ -64,6 +65,34 @@ public class BookingService {
 
     public boolean isSurgeActive(Bus bus) {
         return pricing.isSurgeActive(bus.getBookedCount(), bus.getTotalSeats());
+    }
+
+    // ---------- Change 2: female co-seat rule ----------
+
+    /** The passenger currently sitting in this seat (active ticket), or null if the seat is empty. */
+    public Passenger getPassengerAt(Bus bus, String seatNo) {
+        if (seatNo == null) return null;
+        for (Booking b : bookings) {
+            if (!b.getRouteId().equals(bus.getRouteId())) continue;
+            Ticket ticket = b.findActiveTicket(seatNo);
+            if (ticket != null) return ticket.getPassenger();
+        }
+        return null;
+    }
+
+    /** Returns the "reserved for a female co-passenger" message if the booking breaks the rule, else null. */
+    public String checkCoSeatRule(Bus bus, List<String> seatNos, List<Passenger> passengers) {
+        for (int i = 0; i < seatNos.size(); i++) {
+            String seatNo = seatNos.get(i);
+            String partner = bus.getPairedSeat(seatNo);
+            if (partner == null) continue;                  // single berth: no pair, no restriction
+            if (seatNos.contains(partner)) continue;        // both seats of the pair in ONE booking: allowed
+            Passenger neighbour = getPassengerAt(bus, partner);
+            if (!coSeatRule.isAllowed(passengers.get(i), neighbour)) {
+                return coSeatRule.blockedMessage(seatNo);
+            }
+        }
+        return null;
     }
 
     // ---------- Feature 3: booking ----------
