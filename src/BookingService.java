@@ -16,12 +16,14 @@ public class BookingService {
     private final CoSeatRule coSeatRule = new CoSeatRule();
     private final List<Bus> buses;
     private final List<Booking> bookings;
+    private final Waitlist waitlist;
     private final Random random = new Random();
 
     public BookingService(DataStore store) {
         this.store = store;
         this.buses = store.loadBuses();
         this.bookings = store.loadBookings();
+        this.waitlist = store.loadWaitlist();
     }
 
     // ---------- Feature 1: buses ----------
@@ -159,8 +161,8 @@ public class BookingService {
         return null;
     }
 
-    /** Cancels the given seats, frees them, saves, and returns the total refund. */
-    public double cancelSeats(Booking booking, List<String> seatNos) {
+    /** Cancels the given seats, frees them, then offers the freed seats to the waitlist. Saves everything. */
+    public CancellationResult cancelSeats(Booking booking, List<String> seatNos) {
         Bus bus = findBus(booking.getRouteId());
         double totalRefund = 0;
         for (String seatNo : seatNos) {
@@ -170,8 +172,63 @@ public class BookingService {
             bus.getSeat(seatNo).setBooked(false);   // seat is free again immediately
             totalRefund += refund;
         }
+        CancellationResult result = new CancellationResult(totalRefund);
+        promoteFromWaitlist(bus, seatNos, result);
         saveAll();
-        return totalRefund;
+        return result;
+    }
+
+    // ---------- Change 3: waitlist and auto-promotion ----------
+
+    /** Returns a message if the person cannot join the waitlist, or null if they can. */
+    public String checkCanJoinWaitlist(Bus bus) {
+        if (bus.getDeparture().isBefore(LocalDateTime.now())) return "This bus has already departed.";
+        if (bus.getAvailableCount() > 0) {
+            return "Seats are still available on this bus, so there is no need to wait. Please use 'Book tickets'.";
+        }
+        if (waitlist.isFull(bus.getRouteId())) {
+            return "The waitlist for this bus is full (" + Waitlist.MAX_PER_BUS + " of " + Waitlist.MAX_PER_BUS + ").";
+        }
+        return null;
+    }
+
+    /** Adds the passenger to the back of the queue and returns their position (1 = front). */
+    public int joinWaitlist(Bus bus, Passenger passenger) {
+        waitlist.add(new WaitlistEntry(bus.getRouteId(), passenger, LocalDateTime.now()));
+        saveAll();
+        return waitlist.forBus(bus.getRouteId()).size();
+    }
+
+    public List<WaitlistEntry> getWaitlist(Bus bus) {
+        return waitlist.forBus(bus.getRouteId());
+    }
+
+    /**
+     * Gives each freed seat to the first person in the queue who is allowed to take it.
+     * Someone who would break the female co-seat rule is skipped but keeps their place at the front.
+     */
+    private void promoteFromWaitlist(Bus bus, List<String> freedSeats, CancellationResult result) {
+        for (String seatNo : freedSeats) {
+            Passenger neighbour = getPassengerAt(bus, bus.getPairedSeat(seatNo));
+            for (WaitlistEntry entry : waitlist.forBus(bus.getRouteId())) {
+                Passenger person = entry.getPassenger();
+                if (!coSeatRule.isAllowed(person, neighbour)) {
+                    result.addNote("Skipped " + person.getName() + " (waitlist): seat " + seatNo
+                            + " is next to a solo female passenger. Stays at the front of the queue.");
+                    continue;
+                }
+                // Eligible: confirm them in this seat with a new PNR, then remove them from the queue
+                Seat seat = bus.getSeat(seatNo);
+                double fare = pricing.priceFor(bus, bus.getBookedCount());
+                Booking promoted = new Booking(generatePnr(), bus.getRouteId(), LocalDateTime.now());
+                promoted.addTicket(new Ticket(promoted.getPnr(), seatNo, person, fare));
+                seat.setBooked(true);
+                bookings.add(promoted);
+                waitlist.remove(entry);
+                result.addPromotion(promoted);
+                break;
+            }
+        }
     }
 
     // ---------- Feature 5: manifest ----------
@@ -191,5 +248,6 @@ public class BookingService {
     private void saveAll() {
         store.saveBuses(buses);
         store.saveBookings(bookings);
+        store.saveWaitlist(waitlist);
     }
 }

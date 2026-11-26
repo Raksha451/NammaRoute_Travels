@@ -143,4 +143,26 @@ public class Printer {
         }
         System.out.println("TOTAL     : " + money(total));
     }
+
+    // ---------- Change 3: waitlist ----------
+
+    public static void printWaitlist(Bus bus, List<WaitlistEntry> queue) {
+        System.out.println();
+        System.out.println("=== WAITLIST: " + bus.getRouteId() + " (" + bus.getOrigin() + " -> "
+                + bus.getDestination() + ") ===");
+        if (queue.isEmpty()) {
+            System.out.println("Nobody is on the waitlist.");
+            return;
+        }
+        System.out.printf("%-3s | %-20s | %-3s | %-6s | %s%n", "No", "Passenger Name", "Age", "Gender", "Joined");
+        System.out.println("-".repeat(60));
+        int position = 1;
+        for (WaitlistEntry e : queue) {
+            Passenger p = e.getPassenger();
+            System.out.printf("%-3d | %-20s | %-3d | %-6s | %s%n", position++, p.getName(), p.getAge(),
+                    p.getGender(), e.getJoinedAt().format(Bus.DATE_FORMAT));
+        }
+        System.out.println("-".repeat(60));
+        System.out.println("Waiting: " + queue.size() + " of " + Waitlist.MAX_PER_BUS + " places used");
+    }
 }

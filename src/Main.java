@@ -25,7 +25,7 @@ public class Main {
             boolean running = true;
             while (running) {
                 printMenu();
-                int choice = input.readInt("Enter your choice: ", 0, 6);
+                int choice = input.readInt("Enter your choice: ", 0, 8);
                 try {
                     switch (choice) {
                         case 1 -> addBus();
@@ -34,6 +34,8 @@ public class Main {
                         case 4 -> bookTickets();
                         case 5 -> cancelTickets();
                         case 6 -> showManifest();
+                        case 7 -> joinWaitlist();
+                        case 8 -> showWaitlist();
                         case 0 -> running = false;
                     }
                 } catch (IllegalArgumentException | IllegalStateException | UncheckedIOException e) {
@@ -55,6 +57,8 @@ public class Main {
         System.out.println("4. Book tickets");
         System.out.println("5. Cancel tickets");
         System.out.println("6. Conductor passenger manifest");
+        System.out.println("7. Join waitlist (full buses)");
+        System.out.println("8. View waitlist");
         System.out.println("0. Exit");
     }
 
@@ -105,6 +109,10 @@ public class Main {
         System.out.println("\n--- Book Tickets ---");
         Bus bus = askForBus();
         if (bus == null) return;
+        if (bus.getAvailableCount() == 0) {
+            System.out.println("This bus is fully booked. Please use option 7 to join the waitlist.");
+            return;
+        }
 
         Printer.printSeatMap(bus);
         Printer.printPriceInfo(bus, service.currentPrice(bus), service.isSurgeActive(bus));
@@ -176,18 +184,67 @@ public class Main {
             return;
         }
 
-        double refund = service.cancelSeats(booking, seatsToCancel);
+        CancellationResult result = service.cancelSeats(booking, seatsToCancel);
         System.out.println();
         System.out.println("CANCELLATION CONFIRMED");
         System.out.println("PNR              : " + pnr);
         System.out.println("Seats cancelled  : " + String.join(", ", seatsToCancel));
-        System.out.println("Refund amount    : " + Printer.money(refund));
-        System.out.println("These seats are now available again.");
+        System.out.println("Refund amount    : " + Printer.money(result.getRefund()));
+        showWaitlistOutcome(booking, seatsToCancel, result);
+    }
+
+    /** Tells the user which freed seats went to the waitlist and which are simply available again. */
+    private static void showWaitlistOutcome(Booking cancelled, List<String> seatsCancelled, CancellationResult result) {
+        for (String note : result.getNotes()) {
+            System.out.println("Waitlist note    : " + note);
+        }
+        List<String> promotedSeats = new ArrayList<>();
+        Bus bus = service.findBus(cancelled.getRouteId());
+        for (Booking promoted : result.getPromotedBookings()) {
+            Ticket t = promoted.getTickets().get(0);
+            promotedSeats.add(t.getSeatNo());
+            System.out.println();
+            System.out.println("WAITLIST PROMOTION: " + t.getPassenger().getName() + " is now CONFIRMED in seat "
+                    + t.getSeatNo() + " (new PNR " + promoted.getPnr() + ").");
+            Printer.printReceipt(bus, promoted);
+        }
+        for (String seatNo : seatsCancelled) {
+            if (!promotedSeats.contains(seatNo)) {
+                System.out.println("Seat " + seatNo + " is now available again.");
+            }
+        }
     }
 
     // ---------- Feature 5 ----------
     private static void showManifest() {
         Bus bus = askForBus();
         if (bus != null) Printer.printManifest(bus, service.getManifest(bus));
+    }
+
+    // ---------- Change 3 ----------
+    private static void joinWaitlist() {
+        System.out.println("\n--- Join Waitlist ---");
+        Bus bus = askForBus();
+        if (bus == null) return;
+
+        String problem = service.checkCanJoinWaitlist(bus);
+        if (problem != null) {
+            System.out.println("Cannot join waitlist. " + problem);
+            return;
+        }
+
+        String name = input.readName("  Name: ");
+        int age = input.readInt("  Age (1-120): ", 1, 120);
+        String gender = input.readGender("  Gender (M / F / Other): ");
+
+        int position = service.joinWaitlist(bus, new Passenger(name, age, gender));
+        System.out.println("Added to the waitlist for " + bus.getRouteId() + ". Position: " + position
+                + " of " + Waitlist.MAX_PER_BUS + ".");
+        System.out.println("If a seat is cancelled, you will be confirmed automatically with a new PNR.");
+    }
+
+    private static void showWaitlist() {
+        Bus bus = askForBus();
+        if (bus != null) Printer.printWaitlist(bus, service.getWaitlist(bus));
     }
 }

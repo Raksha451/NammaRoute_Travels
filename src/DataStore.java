@@ -14,10 +14,12 @@ import java.util.Map;
  *
  * buses.csv    : routeId,origin,destination,departure,basePrice,busType,bookedSeats(separated by |)
  * bookings.csv : pnr,routeId,bookingTime,seatNo,name,age,gender,fare,status,refund   (one line per ticket)
+ * waitlist.csv : routeId,joinedAt,name,age,gender   (one line per waiting passenger, oldest first)
  */
 public class DataStore {
     private final Path busFile;
     private final Path bookingFile;
+    private final Path waitlistFile;
 
     public DataStore(String folder) {
         try {
@@ -27,6 +29,7 @@ public class DataStore {
         }
         busFile = Paths.get(folder, "buses.csv");
         bookingFile = Paths.get(folder, "bookings.csv");
+        waitlistFile = Paths.get(folder, "waitlist.csv");
     }
 
     // ---------- Buses ----------
@@ -87,6 +90,29 @@ public class DataStore {
             }
         }
         writeLines(bookingFile, lines);
+    }
+
+    // ---------- Waitlist ----------
+
+    /** If waitlist.csv does not exist yet (old V1.0 data), the waitlist simply starts empty. */
+    public Waitlist loadWaitlist() {
+        Waitlist waitlist = new Waitlist();
+        for (String line : readLines(waitlistFile)) {
+            String[] p = line.split(",", -1);
+            Passenger passenger = new Passenger(p[2], Integer.parseInt(p[3]), p[4]);
+            waitlist.add(new WaitlistEntry(p[0], passenger, LocalDateTime.parse(p[1], Bus.DATE_FORMAT)));
+        }
+        return waitlist;
+    }
+
+    public void saveWaitlist(Waitlist waitlist) {
+        List<String> lines = new ArrayList<>();
+        for (WaitlistEntry e : waitlist.getAll()) {
+            Passenger p = e.getPassenger();
+            lines.add(String.join(",", e.getRouteId(), e.getJoinedAt().format(Bus.DATE_FORMAT),
+                    p.getName(), String.valueOf(p.getAge()), p.getGender()));
+        }
+        writeLines(waitlistFile, lines);
     }
 
     // ---------- Helpers ----------
