@@ -42,6 +42,30 @@ public class BookingService {
         return null;
     }
 
+    // ---------- Change 1: surge pricing ----------
+
+    /**
+     * The price of each seat in a booking, in order. Seats are priced one by one, so if this
+     * booking pushes the bus past 70%, the later seats in the same booking get the surge price.
+     */
+    public List<Double> previewFares(Bus bus, int seatCount) {
+        List<Double> fares = new ArrayList<>();
+        int alreadyBooked = bus.getBookedCount();
+        for (int i = 0; i < seatCount; i++) {
+            fares.add(pricing.priceFor(bus, alreadyBooked + i));
+        }
+        return fares;
+    }
+
+    /** The price the next seat on this bus would cost right now. */
+    public double currentPrice(Bus bus) {
+        return pricing.priceFor(bus, bus.getBookedCount());
+    }
+
+    public boolean isSurgeActive(Bus bus) {
+        return pricing.isSurgeActive(bus.getBookedCount(), bus.getTotalSeats());
+    }
+
     // ---------- Feature 3: booking ----------
 
     /** Returns an error message if the seats cannot be booked, or null if everything is fine. */
@@ -61,10 +85,10 @@ public class BookingService {
     /** Books the seats (already validated) and saves everything. */
     public Booking book(Bus bus, List<String> seatNos, List<Passenger> passengers) {
         Booking booking = new Booking(generatePnr(), bus.getRouteId(), LocalDateTime.now());
+        List<Double> fares = previewFares(bus, seatNos.size());   // same prices the user was shown
         for (int i = 0; i < seatNos.size(); i++) {
             Seat seat = bus.getSeat(seatNos.get(i));
-            double fare = pricing.priceFor(bus, seat);
-            booking.addTicket(new Ticket(booking.getPnr(), seat.getNumber(), passengers.get(i), fare));
+            booking.addTicket(new Ticket(booking.getPnr(), seat.getNumber(), passengers.get(i), fares.get(i)));
             seat.setBooked(true);
         }
         bookings.add(booking);

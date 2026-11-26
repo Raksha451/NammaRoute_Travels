@@ -116,4 +116,30 @@ public class Printer {
         System.out.println("-".repeat(60));
         System.out.println("Total Booked: " + bus.getBookedCount() + " | Available: " + bus.getAvailableCount());
     }
+
+    // ---------- Change 1: surge price display ----------
+
+    public static void printPriceInfo(Bus bus, double currentPrice, boolean surge) {
+        if (surge) {
+            int percentFull = bus.getBookedCount() * 100 / bus.getTotalSeats();
+            System.out.println("SURGE PRICING ACTIVE (bus is " + percentFull + "% full): "
+                    + money(currentPrice) + " per seat (+20%)");
+        } else {
+            System.out.println("Ticket price per seat: " + money(currentPrice));
+        }
+    }
+
+    /** Shows the price of every seat BEFORE the booking is confirmed. */
+    public static void printFareSummary(Bus bus, List<String> seatNos, List<Double> fares) {
+        System.out.println();
+        System.out.println("--- FARE SUMMARY ---");
+        double total = 0;
+        for (int i = 0; i < seatNos.size(); i++) {
+            boolean surge = fares.get(i) > bus.getBasePrice();
+            System.out.printf("Seat %-4s : %s%s%n", seatNos.get(i), money(fares.get(i)),
+                    surge ? "   (surge price +20%)" : "");
+            total += fares.get(i);
+        }
+        System.out.println("TOTAL     : " + money(total));
+    }
 }

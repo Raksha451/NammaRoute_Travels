@@ -95,7 +95,9 @@ public class Main {
     // ---------- Feature 2 ----------
     private static void showSeatMap() {
         Bus bus = askForBus();
-        if (bus != null) Printer.printSeatMap(bus);
+        if (bus == null) return;
+        Printer.printSeatMap(bus);
+        Printer.printPriceInfo(bus, service.currentPrice(bus), service.isSurgeActive(bus));
     }
 
     // ---------- Feature 3 ----------
@@ -105,6 +107,7 @@ public class Main {
         if (bus == null) return;
 
         Printer.printSeatMap(bus);
+        Printer.printPriceInfo(bus, service.currentPrice(bus), service.isSurgeActive(bus));
         List<String> seatNos = input.readSeatNumbers("Enter seat numbers (example 1A, 1B): ");
 
         String error = service.checkSeatsForBooking(bus, seatNos);
@@ -120,6 +123,14 @@ public class Main {
             int age = input.readInt("  Age (1-120): ", 1, 120);
             String gender = input.readGender("  Gender (M / F / Other): ");
             passengers.add(new Passenger(name, age, gender));
+        }
+
+        // Show the price (including any surge) BEFORE the booking is confirmed
+        List<Double> fares = service.previewFares(bus, seatNos.size());
+        Printer.printFareSummary(bus, seatNos, fares);
+        if (!input.readYesNo("Confirm booking? (Y/N): ")) {
+            System.out.println("Booking cancelled. No seats were booked.");
+            return;
         }
 
         Booking booking = service.book(bus, seatNos, passengers);
